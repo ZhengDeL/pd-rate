@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>最优 PD 配比测算器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel: rgba(9, 18, 43, 0.78);
+      --line: rgba(116, 209, 255, 0.22);
+      --text: #eef7ff;
+      --muted: #8ea6c8;
+      --cyan: #00f5ff;
+      --cyan-rgb: 0, 245, 255;
+      --pink: #ff2bd6;
+      --pink-rgb: 255, 43, 214;
+      --green: #37ff8b;
+      --yellow: #ffe066;
+      --purple: #8b5cf6;
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.46);
+    }
+
+    * { box-sizing: border-box; }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 5%, rgba(var(--cyan-rgb), 0.24), transparent 28%),
+        radial-gradient(circle at 88% 8%, rgba(var(--pink-rgb), 0.22), transparent 30%),
+        radial-gradient(circle at 52% 92%, rgba(139, 92, 246, 0.22), transparent 36%),
+        linear-gradient(135deg, #030712, #071024 48%, #040616);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(var(--cyan-rgb), 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--cyan-rgb), 0.07) 1px, transparent 1px);
+      background-size: 46px 46px;
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 78%);
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent 78%);
+      animation: gridMove 18s linear infinite;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: -30%;
+      z-index: 0;
+      pointer-events: none;
+      background: conic-gradient(from 180deg, transparent, rgba(var(--cyan-rgb), 0.12), transparent, rgba(var(--pink-rgb), 0.12), transparent);
+      filter: blur(34px);
+      opacity: 0.46;
+      animation: aurora 15s ease-in-out infinite alternate;
+    }
+
+    @keyframes gridMove {
+      to { background-position: 92px 92px, 92px 92px; }
+    }
+
+    @keyframes aurora {
+      from { transform: rotate(-4deg) scale(1); }
+      to { transform: rotate(5deg) scale(1.06); }
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      width: min(1480px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 30px 0 42px;
+    }
+
+    .hero,
+    .section-card {
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: linear-gradient(145deg, rgba(14, 29, 67, 0.82), rgba(5, 10, 28, 0.72));
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.11);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
+    }
+
+    .hero::before,
+    .section-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(120deg, rgba(var(--cyan-rgb), 0.18), transparent 28%, transparent 72%, rgba(var(--pink-rgb), 0.16));
+      opacity: 0.82;
+    }
+
+    .hero {
+      min-height: 258px;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 26px;
+      align-items: center;
+      padding: 38px;
+    }
+
+    .hero-content,
+    .hero-hud,
+    .section-body,
+    .section-head {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 18px var(--green), 0 0 36px rgba(55, 255, 139, 0.42);
+      animation: pulse 1.35s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.82); opacity: 0.72; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+
+    h1 {
+      margin: 16px 0 14px;
+      font-size: clamp(46px, 8vw, 92px);
+      line-height: 0.9;
+      letter-spacing: -0.075em;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #fff 0%, var(--cyan) 38%, var(--pink) 82%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 46px rgba(var(--cyan-rgb), 0.16);
+    }
+
+    .hero-desc {
+      max-width: 850px;
+      margin: 0;
+      color: #a9bddc;
+      font-size: 16px;
+      line-height: 1.8;
+    }
+
+    .hero-hud {
+      min-height: 178px;
+      border-radius: 28px;
+      background:
+        linear-gradient(90deg, rgba(var(--cyan-rgb), 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(var(--cyan-rgb), 0.08) 1px, transparent 1px),
+        rgba(0, 0, 0, 0.18);
+      background-size: 34px 34px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .hero-orbit {
+      position: relative;
+      width: min(360px, 86%);
+      aspect-ratio: 1.9;
+      border: 1px dashed rgba(var(--cyan-rgb), 0.42);
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+    }
+
+    .hero-orbit::before,
+    .hero-orbit::after {
+      content: "";
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 28px rgba(var(--cyan-rgb), 0.75);
+      animation: orbit 5.4s linear infinite;
+    }
+
+    .hero-orbit::after {
+      background: var(--pink);
+      box-shadow: 0 0 28px rgba(var(--pink-rgb), 0.75);
+      animation-delay: -2.7s;
+    }
+
+    .hero-core {
+      padding: 18px 22px;
+      border-radius: 22px;
+      color: #06111f;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 38px rgba(var(--cyan-rgb), 0.28);
+      font-weight: 950;
+      letter-spacing: -0.03em;
+    }
+
+    @keyframes orbit {
+      from { transform: rotate(0deg) translateX(180px) rotate(0deg); }
+      to { transform: rotate(360deg) translateX(180px) rotate(-360deg); }
+    }
+
+    .section-card {
+      margin-top: 22px;
+      padding: 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 0;
+      font-size: 25px;
+      letter-spacing: -0.03em;
+    }
+
+    .step-no {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      color: #06111f;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      box-shadow: 0 0 24px rgba(var(--cyan-rgb), 0.35);
+      font-weight: 950;
+    }
+
+    .section-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .field {
+      position: relative;
+      min-height: 152px;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(0, 6, 22, 0.52);
+      border: 1px solid rgba(122, 202, 255, 0.18);
+      transition: 0.28s ease;
+    }
+
+    .field:hover,
+    .field:focus-within {
+      transform: translateY(-3px);
+      border-color: rgba(var(--cyan-rgb), 0.72);
+      box-shadow: 0 0 34px rgba(var(--cyan-rgb), 0.13);
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      color: #c4d8f7;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    label span:last-child {
+      color: var(--cyan);
+      font-size: 12px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: #fff;
+      font-size: clamp(28px, 3vw, 42px);
+      font-weight: 950;
+      letter-spacing: -0.05em;
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      margin: 0;
+      -webkit-appearance: none;
+    }
+
+    .unit {
+      min-height: 34px;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin-top: 12px;
+      accent-color: var(--cyan);
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 0.95fr 1.35fr;
+      gap: 18px;
+    }
+
+    .result-summary {
+      display: grid;
+      gap: 14px;
+    }
+
+    .result-card {
+      position: relative;
+      min-height: 148px;
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(255, 255, 255, 0.045);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+    }
+
+    .result-card::after {
+      content: "";
+      position: absolute;
+      width: 150px;
+      height: 150px;
+      right: -58px;
+      top: -58px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--accent-rgb), 0.4), transparent 68%);
+    }
+
+    .result-card.p { --accent-rgb: var(--cyan-rgb); }
+    .result-card.d { --accent-rgb: var(--pink-rgb); }
+    .result-card.mix { --accent-rgb: 55, 255, 139; }
+
+    .card-title,
+    .big-number,
+    .card-desc { position: relative; z-index: 1; }
+
+    .card-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .big-number {
+      margin-top: 9px;
+      font-size: clamp(42px, 5.2vw, 76px);
+      line-height: 0.95;
+      font-weight: 950;
+      letter-spacing: -0.08em;
+      overflow-wrap: anywhere;
+    }
+
+    .result-card.mix .big-number {
+      font-size: clamp(34px, 4.5vw, 68px);
+      letter-spacing: -0.06em;
+    }
+
+    .big-number small {
+      font-size: 24px;
+      letter-spacing: -0.03em;
+      color: #d9e9ff;
+    }
+
+    .card-desc {
+      margin-top: 12px;
+      color: #a7bbdb;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .topology-card {
+      position: relative;
+      min-height: 502px;
+      padding: 18px;
+      border-radius: 28px;
+      background:
+        linear-gradient(90deg, rgba(var(--cyan-rgb), 0.065) 1px, transparent 1px),
+        linear-gradient(rgba(var(--cyan-rgb), 0.065) 1px, transparent 1px),
+        rgba(0, 6, 22, 0.52);
+      background-size: 34px 34px;
+      border: 1px solid rgba(122, 202, 255, 0.17);
+      overflow: hidden;
+    }
+
+    .topology-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .topology-head h3 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #06111f;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 28px rgba(var(--cyan-rgb), 0.24);
+      font-size: 12px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .topology-body {
+      min-height: 348px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(118px, 0.36fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .pool {
+      --accent: var(--cyan);
+      --accent-rgb: var(--cyan-rgb);
+      position: relative;
+      min-width: 0;
+      min-height: 318px;
+      padding: 18px;
+      border-radius: 28px;
+      isolation: isolate;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.025)),
+        radial-gradient(circle at 22% 10%, rgba(var(--accent-rgb), 0.42), transparent 34%),
+        rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(var(--accent-rgb), 0.42);
+      box-shadow: inset 0 0 34px rgba(255,255,255,0.035), 0 0 38px rgba(var(--accent-rgb), 0.16);
+      overflow: hidden;
+    }
+
+    .pool.decode {
+      --accent: var(--pink);
+      --accent-rgb: var(--pink-rgb);
+    }
+
+    .pool::before {
+      content: "";
+      position: absolute;
+      inset: -55%;
+      z-index: -1;
+      background: conic-gradient(from 0deg, transparent 0 18%, rgba(var(--accent-rgb), 0.28) 22%, transparent 32% 100%);
+      opacity: 0.72;
+      animation: ring 10s linear infinite;
+    }
+
+    .pool::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      z-index: -1;
+      border-radius: 27px;
+      background: rgba(3, 9, 28, 0.86);
+    }
+
+    @keyframes ring { to { transform: rotate(360deg); } }
+
+    .pool-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: #dceaff;
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .pool-top b {
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #06111f;
+      background: var(--accent);
+      box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.65);
+    }
+
+    .pool-count {
+      margin-top: 20px;
+      color: #fff;
+      font-size: clamp(42px, 5vw, 74px);
+      line-height: 0.92;
+      font-weight: 950;
+      letter-spacing: -0.08em;
+      text-shadow: 0 0 24px rgba(var(--accent-rgb), 0.54);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .pool-desc {
+      margin-top: 10px;
+      color: #9fb4d6;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .capacity-bar {
+      position: relative;
+      height: 10px;
+      margin: 17px 0 15px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+    }
+
+    .capacity-bar i {
+      display: block;
+      width: var(--fill, 50%);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), #fff);
+      box-shadow: 0 0 18px rgba(var(--accent-rgb), 0.66);
+      transition: width 0.45s ease;
+    }
+
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(8px, 1fr));
+      gap: 6px;
+      min-height: 88px;
+      align-content: start;
+    }
+
+    .chip {
+      min-height: 13px;
+      border-radius: 6px;
+      background: rgba(var(--accent-rgb), 0.9);
+      box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.52);
+      animation: nodeIn 0.38s ease both, nodePulse 2.6s ease-in-out infinite;
+    }
+
+    .chip.more {
+      grid-column: span 3;
+      min-height: 26px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px dashed rgba(255, 255, 255, 0.34);
+      box-shadow: none;
+      font-size: 11px;
+      font-weight: 950;
+    }
+
+    @keyframes nodeIn {
+      from { opacity: 0; transform: scale(0.72) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    @keyframes nodePulse {
+      0%, 100% { opacity: 0.76; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-1px); }
+    }
+
+    .flow {
+      position: relative;
+      height: 318px;
+      min-width: 112px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .flow::before,
+    .flow::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      top: 50%;
+      height: 5px;
+      transform: translateY(-50%);
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--cyan), var(--purple), var(--pink));
+      box-shadow: 0 0 24px rgba(var(--cyan-rgb), 0.42), 0 0 34px rgba(var(--pink-rgb), 0.25);
+    }
+
+    .flow::after {
+      left: auto;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      border-radius: 0;
+      background: transparent;
+      border-top: 5px solid var(--pink);
+      border-right: 5px solid var(--pink);
+      transform: translateY(-50%) rotate(45deg);
+      box-shadow: none;
+      filter: drop-shadow(0 0 12px rgba(var(--pink-rgb), 0.9));
+    }
+
+    .particle {
+      position: absolute;
+      top: 50%;
+      left: 8px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 18px #fff, 0 0 28px var(--cyan);
+      animation: stream 1.85s linear infinite;
+    }
+
+    .particle:nth-child(2) { animation-delay: -0.45s; }
+    .particle:nth-child(3) { animation-delay: -0.9s; }
+    .particle:nth-child(4) { animation-delay: -1.35s; }
+
+    @keyframes stream {
+      from { transform: translate(0, -50%) scale(0.7); opacity: 0; }
+      18%, 82% { opacity: 1; }
+      to { transform: translate(124px, -50%) scale(1.12); opacity: 0; }
+    }
+
+    .flow-label {
+      position: absolute;
+      top: calc(50% + 26px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 150px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: #06111f;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 26px rgba(var(--cyan-rgb), 0.24);
+      font-size: 11px;
+      font-weight: 950;
+      text-align: center;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .metric b {
+      display: block;
+      margin-top: 7px;
+      font-size: 20px;
+      letter-spacing: -0.04em;
+      overflow-wrap: anywhere;
+    }
+
+    .process-layout {
+      display: grid;
+      grid-template-columns: 330px 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .gauge {
+      --angle: 246deg;
+      position: relative;
+      min-height: 270px;
+      border-radius: 28px;
+      background: conic-gradient(from 210deg, var(--cyan) 0deg, var(--pink) var(--angle), rgba(255,255,255,0.09) var(--angle) 300deg, transparent 300deg 360deg);
+      display: grid;
+      place-items: center;
+      box-shadow: inset 0 0 36px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+    }
+
+    .gauge::before {
+      content: "";
+      position: absolute;
+      width: 74%;
+      height: 74%;
+      border-radius: 26px;
+      background: rgba(5, 8, 22, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .gauge-content {
+      position: relative;
+      text-align: center;
+    }
+
+    .gauge-content .value {
+      font-size: 48px;
+      font-weight: 950;
+      letter-spacing: -0.06em;
+    }
+
+    .gauge-content .label {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .steps li {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 12px;
+      align-items: start;
+      min-height: 92px;
+      padding: 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.047);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #c9daf5;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .steps em {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: #06111f;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      font-style: normal;
+      font-weight: 950;
+    }
+
+    .steps strong { color: #fff; }
+
+    .warning {
+      margin-top: 12px;
+      padding: 15px;
+      border-radius: 20px;
+      background: rgba(255, 224, 102, 0.09);
+      border: 1px solid rgba(255, 224, 102, 0.24);
+      color: #ffeeb0;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .formula-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .formula-line b { color: var(--cyan); }
+
+    @media (max-width: 1180px) {
+      .hero,
+      .result-grid,
+      .process-layout { grid-template-columns: 1fr; }
+
+      .input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      .page { width: min(100% - 24px, 1480px); padding-top: 14px; }
+      .hero,
+      .section-card { padding: 18px; border-radius: 24px; }
+      h1 { font-size: 48px; }
+      .section-head { align-items: flex-start; flex-direction: column; }
+      .input-grid,
+      .metric-row,
+      .steps { grid-template-columns: 1fr; }
+      .topology-body { grid-template-columns: 1fr; }
+      .flow { width: 100%; min-width: 100%; height: 86px; }
+      .flow::before { left: 18%; right: 18%; }
+      .flow::after { right: 18%; }
+      .pool { min-height: 276px; }
+      .hero-orbit::before,
+      .hero-orbit::after { animation: none; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div class="hero-content">
+        <div class="eyebrow">PD Ratio Intelligence Console</div>
+        <h1><span class="gradient-text">最优 PD</span><br />配比测算器</h1>
+        <p class="hero-desc">
+          用于 PD 分离场景下的 P/D 资源配比测算。输入指定输入长度、输出长度，以及对应长度下单 P、单 D 的实测 QPS，页面自动输出最优配比、工程取整建议和完整代入过程。
+        </p>
+      </div>
+      <div class="hero-hud" aria-hidden="true">
+        <div class="hero-orbit">
+          <div class="hero-core">P/D BALANCER</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="section-card" id="params">
+      <div class="section-head">
+        <h2 class="section-title"><span class="step-no">02</span>参数输入</h2>
+        <div class="section-note">长度最高支持 1,000,000 tokens；QPS 请填对应长度下的稳态实测值。</div>
+      </div>
+      <div class="section-body input-grid">
+        <div class="field">
+          <label for="inputLen"><span>输入长度</span><span>Input</span></label>
+          <input id="inputLen" type="number" min="1" step="1" value="256" />
+          <div class="unit">tokens / request</div>
+          <input id="inputRange" type="range" min="1" max="1000000" step="1" value="256" title="输入长度滑条" />
+        </div>
+        <div class="field">
+          <label for="outputLen"><span>输出长度</span><span>Output</span></label>
+          <input id="outputLen" type="number" min="1" step="1" value="256" />
+          <div class="unit">tokens / request</div>
+          <input id="outputRange" type="range" min="1" max="1000000" step="1" value="256" title="输出长度滑条" />
+        </div>
+        <div class="field">
+          <label for="pQps"><span>P 节点 QPS</span><span>Prefill</span></label>
+          <input id="pQps" type="number" min="0.0001" step="0.0001" value="30.4659" />
+          <div class="unit">该输入长度下单 P 每秒处理请求数</div>
+          <input id="pQpsRange" type="range" min="0.0001" max="1000" step="0.0001" value="30.4659" title="P 节点 QPS 滑条" />
+        </div>
+        <div class="field">
+          <label for="dQps"><span>D 节点 QPS</span><span>Decode</span></label>
+          <input id="dQps" type="number" min="0.0001" step="0.0001" value="7.6919" />
+          <div class="unit">该输出长度下单 D 每秒处理请求数</div>
+          <input id="dQpsRange" type="range" min="0.0001" max="1000" step="0.0001" value="7.6919" title="D 节点 QPS 滑条" />
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card" id="result">
+      <div class="section-head">
+        <h2 class="section-title"><span class="step-no">03</span>计算结果展示</h2>
+        <div class="section-note">拓扑为聚合视图，P/D 很多时自动压缩展示。</div>
+      </div>
+      <div class="section-body result-grid">
+        <div class="result-summary">
+          <div class="result-card p">
+            <div class="card-title">Prefill 配比</div>
+            <div class="big-number" id="pNeed">1<small>P</small></div>
+            <div class="card-desc" id="pDesc">代入 P QPS = 30.4659</div>
+          </div>
+          <div class="result-card d">
+            <div class="card-title">Decode 配比</div>
+            <div class="big-number" id="dNeed">3.96<small>D</small></div>
+            <div class="card-desc" id="dDesc">代入 D QPS = 7.6919</div>
+          </div>
+          <div class="result-card mix">
+            <div class="card-title">最终结论</div>
+            <div class="big-number" id="ratioText">1:3.9608</div>
+            <div class="card-desc" id="finalDesc">工程取整 1P + 4D</div>
+          </div>
+        </div>
+
+        <div class="topology-card">
+          <div class="topology-head">
+            <h3>PD Pipeline 拓扑</h3>
+            <span class="badge" id="statusBadge">P:D = 1:3.9608</span>
+          </div>
+          <div class="topology-body">
+            <div class="pool prefill">
+              <div class="pool-top"><span>Prefill Pool</span><b id="pClusterCount">1P</b></div>
+              <div class="pool-count" id="pTopologyCount">1P</div>
+              <div class="pool-desc" id="pTopologyDesc">单 P QPS 30.4659，聚合 1 个 Prefill 节点</div>
+              <div class="capacity-bar"><i id="pCapacityBar"></i></div>
+              <div class="chips" id="pChips"></div>
+            </div>
+
+            <div class="flow" aria-hidden="true">
+              <span class="particle"></span>
+              <span class="particle"></span>
+              <span class="particle"></span>
+              <span class="particle"></span>
+              <div class="flow-label" id="flowRatio">1P → 4D</div>
+            </div>
+
+            <div class="pool decode">
+              <div class="pool-top"><span>Decode Pool</span><b id="dClusterCount">4D</b></div>
+              <div class="pool-count" id="dTopologyCount">4D</div>
+              <div class="pool-desc" id="dTopologyDesc">单 D QPS 7.6919，聚合 4 个 Decode 节点</div>
+              <div class="capacity-bar"><i id="dCapacityBar"></i></div>
+              <div class="chips" id="dChips"></div>
+            </div>
+          </div>
+          <div class="metric-row">
+            <div class="metric"><span>输入长度</span><b id="metricInput">256</b></div>
+            <div class="metric"><span>输出长度</span><b id="metricOutput">256</b></div>
+            <div class="metric"><span>QPS 能力比</span><b id="qpsRatioMetric">3.9608×</b></div>
+            <div class="metric"><span>工程取整资源</span><b id="totalNodes">5</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-card" id="process">
+      <div class="section-head">
+        <h2 class="section-title"><span class="step-no">04</span>计算过程</h2>
+        <div class="section-note">展示输入参数、公式代入、分支判定和工程取整。</div>
+      </div>
+      <div class="section-body process-layout">
+        <div class="gauge" id="gauge">
+          <div class="gauge-content">
+            <div class="value" id="utilText">99.0%</div>
+            <div class="label">整数取整配平度</div>
+          </div>
+        </div>
+        <div>
+          <ol class="steps">
+            <li><em>1</em><span id="step1"><strong>输入/输出长度：</strong>256 / 256 tokens。</span></li>
+            <li><em>2</em><span id="step2"><strong>代入 P/D QPS：</strong>QPS_P = 30.4659，QPS_D = 7.6919。</span></li>
+            <li><em>3</em><span id="step3"><strong>计算能力比：</strong>R = QPS_P ÷ QPS_D = 3.9608。</span></li>
+            <li><em>4</em><span id="step4"><strong>最优配比：</strong>R &gt; 1，所以 P:D = 1:3.9608。</span></li>
+          </ol>
+          <div class="warning" id="warning">
+            当前只计算配比。若实际部署必须使用整数资源，建议采用工程取整结果后再做稳态压测。
+          </div>
+          <div class="formula-line">
+            <span>代入公式：<b id="idealRatio">QPS_P / QPS_D = 3.9608</b></span>
+            <span>判定分支：<b id="bottleneck">R &gt; 1，D 侧需扩容</b></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const state = {
+      inputLen: $("inputLen"),
+      outputLen: $("outputLen"),
+      inputRange: $("inputRange"),
+      outputRange: $("outputRange"),
+      pQps: $("pQps"),
+      dQps: $("dQps"),
+      pQpsRange: $("pQpsRange"),
+      dQpsRange: $("dQpsRange")
+    };
+
+    function cleanNumber(value, fallback, min = 0.0001) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) && parsed >= min ? parsed : fallback;
+    }
+
+    function format(value, digits = 2) {
+      if (!Number.isFinite(value)) return "-";
+      if (digits === 0) return value.toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+      if (Math.abs(value) >= 1000) return value.toLocaleString("zh-CN", { maximumFractionDigits: Math.min(digits, 2) });
+      if (Math.abs(value) >= 100) return value.toFixed(Math.min(digits, 1));
+      return value.toFixed(digits);
+    }
+
+    function ratioFormat(value, digits = 4) {
+      if (!Number.isFinite(value)) return "-";
+      if (Math.abs(value) >= 1000) {
+        return value.toLocaleString("zh-CN", { maximumFractionDigits: Math.min(digits, 2) });
+      }
+      const fixed = value.toFixed(digits);
+      return fixed.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+    }
+
+    function compactCount(value) {
+      return Math.round(value).toLocaleString("zh-CN");
+    }
+
+    function syncNumberAndRange(numberEl, rangeEl) {
+      numberEl.addEventListener("input", () => {
+        const value = cleanNumber(numberEl.value, Number(rangeEl.value), Number(rangeEl.min));
+        rangeEl.value = Math.min(Number(rangeEl.max), Math.max(Number(rangeEl.min), value));
+        calculate();
+      });
+      rangeEl.addEventListener("input", () => {
+        numberEl.value = rangeEl.value;
+        calculate();
+      });
+    }
+
+    function renderChips(container, count) {
+      container.innerHTML = "";
+      const max = 71;
+      const shown = Math.min(count, max);
+      for (let i = 1; i <= shown; i++) {
+        const chip = document.createElement("div");
+        chip.className = "chip";
+        chip.title = `节点 ${i}`;
+        chip.style.animationDelay = `${Math.min(i * 0.01, 0.44)}s`;
+        container.appendChild(chip);
+      }
+      if (count > max) {
+        const more = document.createElement("div");
+        more.className = "chip more";
+        more.textContent = `+${compactCount(count - max)}`;
+        container.appendChild(more);
+      }
+    }
+
+    function calculate() {
+      const inputLen = cleanNumber(state.inputLen.value, 256, 1);
+      const outputLen = cleanNumber(state.outputLen.value, 256, 1);
+      const pQps = cleanNumber(state.pQps.value, 30.4659, 0.0001);
+      const dQps = cleanNumber(state.dQps.value, 7.6919, 0.0001);
+
+      const qpsRatio = pQps / dQps;
+      const pRatio = qpsRatio > 1 ? 1 : dQps / pQps;
+      const dRatio = qpsRatio > 1 ? qpsRatio : 1;
+      const roundedP = Math.max(1, Math.ceil(pRatio));
+      const roundedD = Math.max(1, Math.ceil(dRatio));
+      const roundedPTotal = roundedP * pQps;
+      const roundedDTotal = roundedD * dQps;
+      const balance = Math.min(roundedPTotal, roundedDTotal) / Math.max(roundedPTotal, roundedDTotal) * 100;
+      const maxRounded = Math.max(roundedP, roundedD);
+      const pFill = Math.max(8, roundedP / maxRounded * 100);
+      const dFill = Math.max(8, roundedD / maxRounded * 100);
+      const angle = Math.max(8, Math.min(300, balance / 100 * 300));
+      const branch = qpsRatio > 1 ? "R > 1，D 侧需扩容" : qpsRatio < 1 ? "R ≤ 1，P 侧需扩容" : "R = 1，P/D 等比例";
+      const decision = qpsRatio > 1
+        ? `P:D = 1:${ratioFormat(dRatio)}`
+        : qpsRatio < 1
+          ? `P:D = ${ratioFormat(pRatio)}:1`
+          : "P:D = 1:1";
+
+      $("pNeed").innerHTML = `${ratioFormat(pRatio, 2)}<small>P</small>`;
+      $("dNeed").innerHTML = `${ratioFormat(dRatio, 2)}<small>D</small>`;
+      $("ratioText").textContent = `${ratioFormat(pRatio)}:${ratioFormat(dRatio)}`;
+      $("finalDesc").textContent = `工程取整 ${compactCount(roundedP)}P + ${compactCount(roundedD)}D`;
+      $("pDesc").textContent = `代入 P QPS = ${format(pQps, 4)}`;
+      $("dDesc").textContent = `代入 D QPS = ${format(dQps, 4)}`;
+      $("statusBadge").textContent = decision;
+
+      $("pClusterCount").textContent = `${compactCount(roundedP)}P`;
+      $("dClusterCount").textContent = `${compactCount(roundedD)}D`;
+      $("pTopologyCount").textContent = `${compactCount(roundedP)}P`;
+      $("dTopologyCount").textContent = `${compactCount(roundedD)}D`;
+      $("pTopologyDesc").textContent = `单 P QPS ${format(pQps, 4)}，聚合 ${compactCount(roundedP)} 个 Prefill 节点`;
+      $("dTopologyDesc").textContent = `单 D QPS ${format(dQps, 4)}，聚合 ${compactCount(roundedD)} 个 Decode 节点`;
+      $("pCapacityBar").style.setProperty("--fill", `${pFill}%`);
+      $("dCapacityBar").style.setProperty("--fill", `${dFill}%`);
+      $("flowRatio").textContent = `${compactCount(roundedP)}P → ${compactCount(roundedD)}D`;
+      $("metricInput").textContent = format(inputLen, 0);
+      $("metricOutput").textContent = format(outputLen, 0);
+      $("qpsRatioMetric").textContent = `${ratioFormat(qpsRatio)}×`;
+      $("totalNodes").textContent = compactCount(roundedP + roundedD);
+
+      $("utilText").textContent = `${format(balance, 1)}%`;
+      $("gauge").style.setProperty("--angle", `${angle}deg`);
+      $("step1").innerHTML = `<strong>输入/输出长度：</strong>${format(inputLen, 0)} / ${format(outputLen, 0)} tokens。`;
+      $("step2").innerHTML = `<strong>代入 P/D QPS：</strong>QPS_P = ${format(pQps, 4)}，QPS_D = ${format(dQps, 4)}。`;
+      $("step3").innerHTML = `<strong>计算能力比：</strong>R = QPS_P ÷ QPS_D = ${format(pQps, 4)} ÷ ${format(dQps, 4)} = ${ratioFormat(qpsRatio)}。`;
+      $("step4").innerHTML = `<strong>最优配比：</strong>${branch}，所以 ${decision}；工程取整可用 ${compactCount(roundedP)}P + ${compactCount(roundedD)}D。`;
+      $("warning").textContent = `当前只计算配比：输入 ${format(inputLen, 0)}、输出 ${format(outputLen, 0)}、P QPS ${format(pQps, 4)}、D QPS ${format(dQps, 4)}，得到 ${decision}。若实际部署必须使用整数资源，建议采用 ${compactCount(roundedP)}P + ${compactCount(roundedD)}D 后再做稳态压测。`;
+      $("idealRatio").textContent = `QPS_P / QPS_D = ${ratioFormat(qpsRatio)}`;
+      $("bottleneck").textContent = branch;
+
+      renderChips($("pChips"), roundedP);
+      renderChips($("dChips"), roundedD);
+    }
+
+    syncNumberAndRange(state.inputLen, state.inputRange);
+    syncNumberAndRange(state.outputLen, state.outputRange);
+    syncNumberAndRange(state.pQps, state.pQpsRange);
+    syncNumberAndRange(state.dQps, state.dQpsRange);
+    calculate();
+  </script>
+</body>
+</html>
