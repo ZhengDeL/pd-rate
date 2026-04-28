@@ -8,17 +8,13 @@
 
 1. [AISBench Releases](https://github.com/AISBench/benchmark/releases)
 
-2. [AISBench Docker 镜像使用说明]  
-   https://github.com/AISBench/benchmark/wiki/AISBench-Docker-Images-Guidance
+2. [AISBench Docker 镜像使用说明](https://github.com/AISBench/benchmark/wiki/AISBench-Docker-Images-Guidance)
 
-3. AISBench 快速入门  
-   https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/get_started/quick_start.html
+3. AISBench 快速入门(https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/get_started/quick_start.html)
 
-4. AISBench Synthetic 数据集使用指南  
-   https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/advanced_tutorials/synthetic_dataset.html
+4. AISBench Synthetic 数据集使用指南(https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/advanced_tutorials/synthetic_dataset.html)
 
-5. AISBench 服务化稳定状态性能测试  
-   https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/advanced_tutorials/stable_stage.html
+5. AISBench 服务化稳定状态性能测试(https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/advanced_tutorials/stable_stage.html)
 
 ---
 
