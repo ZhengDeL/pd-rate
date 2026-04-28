@@ -809,10 +809,138 @@
 
     .formula-line b { color: var(--cyan); }
 
+    .guide-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .guide-panel {
+      padding: 22px;
+      border-radius: 26px;
+      background: rgba(0, 6, 22, 0.52);
+      border: 1px solid rgba(122, 202, 255, 0.17);
+    }
+
+    .guide-panel h3 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .guide-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: #c9daf5;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .guide-list li {
+      position: relative;
+      padding-left: 22px;
+    }
+
+    .guide-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.72em;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 16px rgba(var(--cyan-rgb), 0.75);
+    }
+
+    .guide-link-card {
+      position: relative;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px;
+      border-radius: 26px;
+      color: var(--text);
+      text-decoration: none;
+      background:
+        radial-gradient(circle at 12% 16%, rgba(var(--cyan-rgb), 0.25), transparent 38%),
+        radial-gradient(circle at 86% 22%, rgba(var(--pink-rgb), 0.25), transparent 35%),
+        rgba(0, 6, 22, 0.58);
+      border: 1px solid rgba(var(--cyan-rgb), 0.32);
+      overflow: hidden;
+      transition: 0.28s ease;
+    }
+
+    .guide-link-card:hover,
+    .guide-link-card:focus-visible {
+      transform: translateY(-4px);
+      border-color: rgba(var(--cyan-rgb), 0.78);
+      box-shadow: 0 0 42px rgba(var(--cyan-rgb), 0.18), 0 0 56px rgba(var(--pink-rgb), 0.12);
+      outline: none;
+    }
+
+    .guide-link-card::after {
+      content: "";
+      position: absolute;
+      inset: -45%;
+      background: conic-gradient(from 0deg, transparent 0 20%, rgba(var(--cyan-rgb), 0.22), transparent 36% 100%);
+      animation: ring 10s linear infinite;
+      opacity: 0.6;
+    }
+
+    .guide-link-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .guide-link-kicker {
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 950;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .guide-link-title {
+      margin-top: 12px;
+      font-size: clamp(28px, 3.6vw, 52px);
+      line-height: 0.98;
+      font-weight: 950;
+      letter-spacing: -0.07em;
+    }
+
+    .guide-link-desc {
+      margin-top: 14px;
+      color: #a9bddc;
+      line-height: 1.65;
+      font-size: 14px;
+    }
+
+    .guide-link-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: fit-content;
+      margin-top: 18px;
+      padding: 11px 15px;
+      border-radius: 999px;
+      color: #06111f;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 28px rgba(var(--cyan-rgb), 0.24);
+      font-size: 13px;
+      font-weight: 950;
+    }
+
     @media (max-width: 1180px) {
       .hero,
       .result-grid,
-      .process-layout { grid-template-columns: 1fr; }
+      .process-layout,
+      .guide-grid { grid-template-columns: 1fr; }
 
       .input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
@@ -977,6 +1105,34 @@
             <span>判定分支：<b id="bottleneck">R &gt; 1，D 侧需扩容</b></span>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="section-card" id="guide">
+      <div class="section-head">
+        <h2 class="section-title"><span class="step-no">05</span>操作指导</h2>
+        <div class="section-note">先按 AISbench 完成 P/D QPS 稳态测试，再把实测值代入本页面计算。</div>
+      </div>
+      <div class="section-body guide-grid">
+        <div class="guide-panel">
+          <h3>推荐使用流程</h3>
+          <ul class="guide-list">
+            <li>确定本次 PD 分离测算的输入长度与输出长度，例如 256 / 256、1K / 4K 或长上下文场景。</li>
+            <li>按照相同输入输出长度、并发策略、request rate 和稳态窗口分别测试单 P、单 D 的 QPS。</li>
+            <li>把实测得到的 P 节点 QPS 与 D 节点 QPS 填入参数输入区。</li>
+            <li>查看计算结果展示区，获得最优 P:D 配比和工程取整建议。</li>
+            <li>最终上线前按取整后的 P/D 资源再次执行稳态压测，确认 TTFT、TPOT 和 E2E 时延满足要求。</li>
+          </ul>
+        </div>
+
+        <a class="guide-link-card" href="https://github.com/ZhengDeL/pd-rate/blob/main/AISBench_P&D%E6%B5%8B%E8%AF%95%E6%96%B9%E6%B3%95%E6%95%B4%E7%90%86.md" target="_blank" rel="noopener noreferrer">
+          <div>
+            <div class="guide-link-kicker">AISbench Test Guide</div>
+            <div class="guide-link-title">跳转到 AISbench 测试方法整理</div>
+            <div class="guide-link-desc">查看 P/D 节点 QPS 测试方法、稳态阶段选择、Benchmark Duration 口径和测试注意事项。</div>
+          </div>
+          <span class="guide-link-action">打开 AISbench 指导 →</span>
+        </a>
       </div>
     </section>
   </main>
