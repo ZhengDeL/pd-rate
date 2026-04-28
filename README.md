@@ -20,7 +20,6 @@
 5. AISBench 服务化稳定状态性能测试  
    https://ais-bench-benchmark.readthedocs.io/zh-cn/latest/advanced_tutorials/stable_stage.html
 
-[百度](http://www.baidu.com "百度首页")
 ---
 
 ## 2. 通用环境准备（P / D 共用）
